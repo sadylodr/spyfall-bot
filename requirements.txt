@@ -1,7 +1,7 @@
 aiogram
 
 sqlalchemy
-asyncpg
+aiosqlite
 
 python-dotenv
 aiofiles
