@@ -15,7 +15,7 @@ async def main():
     bot = Bot(
         token=config.bot_token,
         default = DefaultBotProperties(
-            parse_mode=ParseMode.MARKDOWN_V2
+            parse_mode=ParseMode.HTML
         )    
     )
     dp = Dispatcher()
