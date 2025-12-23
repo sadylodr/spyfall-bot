@@ -9,8 +9,8 @@ router = Router()
 async def handle_start(message: Message):
     welcome_text = (
         f"Привет, <b>{message.from_user.full_name}</b>! Я бот для игры в <b>Шпиона</b> по мотивам Dota 2 или Clash Royale.\n\n"
-        "Чтобы начать игру, используй команду /newgame.\n\n"
-        "Если тебе прислали <i>код</i>, просто отправь его мне или перейди по ссылке."
+        "Для создания игры, используй команду /newgame.\n\n"
+        "Если тебе прислали <i>код</i>, используй команду /join или перейди по ссылке."
     )
 
     await message.answer(welcome_text)
@@ -29,6 +29,7 @@ async def handle_help(message: Message):
         "6. Ваша задача — вычислить Шпиона, задача Шпиона — догадаться, о чем речь.\n\n"
         "Доступные команды:\n"
         "/newgame - Создать новую игру."
+        "/join - Присоединиться к игре."
     )
     
     await message.answer(help_text)

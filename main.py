@@ -7,6 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from bot.misc.config import config
 from bot.handlers.user import common
+from bot.handlers.game import creator, joiner
 from bot.services.content_loader import content_loader
 
 from db.database import init_db
@@ -24,6 +25,8 @@ async def main():
     dp = Dispatcher()
 
     dp.include_router(common.router)
+    dp.include_router(creator.router)
+    dp.include_router(joiner.router)
 
     logging.info("Initializing database...")
     await init_db()

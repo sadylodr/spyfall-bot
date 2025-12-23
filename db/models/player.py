@@ -5,9 +5,9 @@ from db.database import Base
 class Player(Base):
     __tablename__ = "players"
     
-    id = Column()
-    telegram_id = Column()
-    username = Column()
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(BigInteger, nullable=False)
+    username = Column(String, nullable=True)
     
     room_id = Column(Integer, ForeignKey("game_rooms.id", on_delete="CASCADE"), nullable=False)
     

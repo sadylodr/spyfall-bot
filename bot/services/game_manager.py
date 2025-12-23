@@ -1,6 +1,6 @@
 import random
 import string
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, AsyncGenerator
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -160,7 +160,7 @@ class GameManager:
         return False
     
 
-async def get_game_manager() -> GameManager:
+async def get_game_manager() -> AsyncGenerator[GameManager, None]: # <-- ИЗМЕНЯЕМ ТАЙП-ХИНТ
     await content_loader.load_content()
     
     async with AsyncSessionLocal() as session:
