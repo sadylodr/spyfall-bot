@@ -134,7 +134,7 @@ async def cb_theme_selected(callback: CallbackQuery, callback_data: ThemeCallbac
         await callback.message.answer(f"Произошла ошибка при создании комнаты: {e}")
         
 @router.callback_query(GameActionCallback.filter(F.action.in_(['start', 'refresh', 'finish'])))
-async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallback, manager: GameManager, bot: Bot):
+async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallback, manager: GameManager, bot: Bot, state: FSMContext):
     room_code = callback_data.code
     action = callback_data.action
     
@@ -191,6 +191,8 @@ async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallb
                 reply_markup=create_creator_active_keyboard()
             )
 
+            await state.update_data(active_room_code=room_code)
+
         except Exception as e:
             await callback.message.answer(f"Ошибка при распределении ролей: {e}", parse_mode="HTML")
 
@@ -200,6 +202,7 @@ async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallb
             return
 
         await manager.finish_game(room_code)
+        await state.update_data(active_room_code=None)
         await callback.message.edit_text(
             f"Игра в комнате <i>{room_code}</i> завершена.",
             parse_mode="HTML"
@@ -207,8 +210,12 @@ async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallb
 
 
 @router.message(F.text == CREATOR_ACTIVE_BUTTON_NEW)
-async def cmd_creator_new_game(message: Message, manager: GameManager, bot: Bot):
-    room = await manager.get_active_room_by_creator(message.from_user.id)
+async def cmd_creator_new_game(message: Message, manager: GameManager, bot: Bot, state: FSMContext):
+    data = await state.get_data()
+    room_code = data.get("active_room_code")
+    room = await manager.get_room_by_code(room_code) if room_code else None
+    if not room or room.status != 'ACTIVE':
+        room = await manager.get_active_room_by_creator(message.from_user.id)
     if not room:
         await message.answer("Активная игра не найдена.")
         return
@@ -227,12 +234,17 @@ async def cmd_creator_new_game(message: Message, manager: GameManager, bot: Bot)
 
 
 @router.message(F.text == CREATOR_ACTIVE_BUTTON_CLOSE)
-async def cmd_creator_close_room(message: Message, manager: GameManager):
-    room = await manager.get_active_room_by_creator(message.from_user.id)
+async def cmd_creator_close_room(message: Message, manager: GameManager, state: FSMContext):
+    data = await state.get_data()
+    room_code = data.get("active_room_code")
+    room = await manager.get_room_by_code(room_code) if room_code else None
+    if not room or room.status != 'ACTIVE':
+        room = await manager.get_active_room_by_creator(message.from_user.id)
     if not room:
         await message.answer("Активная игра не найдена.")
         return
 
     await manager.finish_game(room.room_code)
+    await state.update_data(active_room_code=None)
     await message.answer("Комната закрыта. Игра завершена.", reply_markup=ReplyKeyboardRemove())
     

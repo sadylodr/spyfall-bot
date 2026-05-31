@@ -153,8 +153,10 @@ class GameManager:
 
     async def get_active_room_by_creator(self, creator_id: int) -> Optional[GameRoom]:
         async with self.sessionmaker() as session:
-            stmt = select(GameRoom).where(
-                (GameRoom.creator_id == creator_id) & (GameRoom.status == STATUS_ACTIVE)
+            stmt = (
+                select(GameRoom)
+                .where((GameRoom.creator_id == creator_id) & (GameRoom.status == STATUS_ACTIVE))
+                .order_by(GameRoom.created_at.desc())
             )
             result = await session.execute(stmt)
             return result.scalars().first()
