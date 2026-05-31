@@ -7,11 +7,9 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup
 
 from bot.states.game_states import GameCreation
 from bot.keyboards.inline import create_theme_keyboard, create_game_management_keyboard,ThemeCallback, GameActionCallback
-from bot.services.game_manager import GameManager, get_game_manager
+from bot.services.game_manager import GameManager, create_game_manager
 from db.models.player import Player
 
-
-GameManagerDep = Annotated[GameManager, get_game_manager]
 
 router = Router()
 
@@ -66,7 +64,7 @@ async def cmd_new_game(message: Message, state: FSMContext):
     await state.set_state(GameCreation.waiting_for_theme)
     
 @router.callback_query(GameCreation.waiting_for_theme, ThemeCallback.filter())
-async def cb_theme_selected(callback: CallbackQuery, callback_data: ThemeCallback, state: FSMContext, manager: GameManagerDep, bot: Bot):
+async def cb_theme_selected(callback: CallbackQuery, callback_data: ThemeCallback, state: FSMContext, manager: GameManager, bot: Bot):
     await callback.answer("Тема принята. Создаю комнату...")
     await state.clear()
     
@@ -77,6 +75,7 @@ async def cb_theme_selected(callback: CallbackQuery, callback_data: ThemeCallbac
             creator_id=callback.from_user.id,
             theme=theme
         )
+        
         room_code = room.room_code
         
         players = await manager.get_room_players(room_code)
@@ -98,7 +97,7 @@ async def cb_theme_selected(callback: CallbackQuery, callback_data: ThemeCallbac
         await callback.message.answer(f"Произошла ошибка при создании комнаты: {e}")
         
 @router.callback_query(GameActionCallback.filter(F.action.in_(['start', 'refresh'])))
-async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallback, manager: GameManagerDep, bot: Bot):
+async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallback, manager: GameManager, bot: Bot):
     room_code = callback_data.code
     action = callback_data.action
     

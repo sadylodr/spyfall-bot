@@ -6,10 +6,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from bot.states.game_states import GameJoining
-from bot.services.game_manager import GameManager, get_game_manager
+from bot.services.game_manager import GameManager, create_game_manager
 
-
-GameManagerDep = Annotated[GameManager, get_game_manager] 
 
 router = Router()
 
@@ -19,7 +17,7 @@ async def cmd_join(message: Message, state: FSMContext):
     await state.set_state(GameJoining.waiting_for_code)
     
 @router.message(GameJoining.waiting_for_code, F.text)
-async def process_code(message: Message, state: FSMContext, manager: GameManagerDep):
+async def process_code(message: Message, state: FSMContext, manager: GameManager):
     code = message.text.upper() 
     await state.clear() 
     

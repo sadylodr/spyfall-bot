@@ -76,7 +76,9 @@ class GameManager:
         )
         
         self.session.add(new_player)
+        
         await self.session.commit()
+        
         return True
     
     async def get_room_players(self, code: str) -> List[Player]:
@@ -160,8 +162,9 @@ class GameManager:
         return False
     
 
-async def get_game_manager() -> AsyncGenerator[GameManager, None]: # <-- ИЗМЕНЯЕМ ТАЙП-ХИНТ
+async def create_game_manager() -> GameManager:
     await content_loader.load_content()
     
-    async with AsyncSessionLocal() as session:
-        yield GameManager(session, content_loader)
+    session = AsyncSessionLocal()
+    
+    return GameManager(session, content_loader)
