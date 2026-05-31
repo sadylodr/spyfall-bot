@@ -151,6 +151,54 @@ class GameManager:
 
             return False
 
+    async def get_active_room_by_creator(self, creator_id: int) -> Optional[GameRoom]:
+        async with self.sessionmaker() as session:
+            stmt = select(GameRoom).where(
+                (GameRoom.creator_id == creator_id) & (GameRoom.status == STATUS_ACTIVE)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    async def restart_game(self, room_code: str, min_players: int = 3) -> bool:
+        async with self.sessionmaker() as session:
+            stmt = (
+                select(GameRoom)
+                .where(GameRoom.room_code == room_code.upper())
+                .options(selectinload(GameRoom.players))
+            )
+            result = await session.execute(stmt)
+            room = result.scalars().first()
+
+            if not room or room.status != STATUS_ACTIVE:
+                return False
+
+            players = list(room.players)
+            if len(players) < min_players:
+                return False
+
+            location = self.content_loader.get_random_location(room.theme)
+            if not location:
+                raise ValueError(f"Content list is empty or theme '{room.theme}' is invalid.")
+
+            spy_player: Player = random.choice(players)
+
+            room.location = location
+            room.spy_id = spy_player.telegram_id
+            room.status = STATUS_ACTIVE
+
+            for player in players:
+                if player.telegram_id == spy_player.telegram_id:
+                    player.role = ROLE_SPY
+                else:
+                    player.role = ROLE_PLAYER
+
+                session.add(player)
+
+            session.add(room)
+            await session.commit()
+
+            return True
+
     async def _get_room_by_code(self, session: AsyncSessionLocal, code: str) -> Optional[GameRoom]:
         code = code.upper()
         stmt = select(GameRoom).where(GameRoom.room_code == code)

@@ -3,10 +3,18 @@ from typing import Annotated, List
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardRemove
 
 from bot.states.game_states import GameCreation
-from bot.keyboards.inline import create_theme_keyboard, create_game_management_keyboard,ThemeCallback, GameActionCallback
+from bot.keyboards.inline import (
+    create_theme_keyboard,
+    create_game_management_keyboard,
+    create_creator_active_keyboard,
+    ThemeCallback,
+    GameActionCallback,
+    CREATOR_ACTIVE_BUTTON_NEW,
+    CREATOR_ACTIVE_BUTTON_CLOSE,
+)
 from bot.services.game_manager import GameManager, create_game_manager
 from db.models.player import Player
 
@@ -54,6 +62,34 @@ async def send_room_info(bot: Bot, room_code: str, chat_id: int, manager: GameMa
         reply_markup=kb,
         parse_mode="HTML"
     )
+
+
+async def notify_players_roles(bot: Bot, manager: GameManager, room_code: str) -> None:
+    players = await manager.get_room_players(room_code)
+    for player in players:
+        info = await manager.get_player_role_info(player.telegram_id, room_code)
+        if info:
+            role, display_info, theme = info
+
+            if role == 'SPY':
+                role_text = f"🚨 <b>ВАША РОЛЬ: ШПИОН</b> 🚨\nТема: <i>{theme}</i>"
+            else:
+                role_text = f"✅ <b>ВАША РОЛЬ: ИГРОК</b>\nЗагадано: <i>{display_info}</i>"
+
+            try:
+                await bot.send_message(player.telegram_id, role_text, parse_mode="HTML")
+            except Exception:
+                pass
+
+
+async def start_game_and_notify(bot: Bot, manager: GameManager, room_code: str, min_players: int) -> bool:
+    players = await manager.get_room_players(room_code)
+    if len(players) < min_players:
+        return False
+
+    await manager.distribute_roles(room_code, min_players=min_players)
+    await notify_players_roles(bot, manager, room_code)
+    return True
     
 @router.message(Command("newgame"))
 async def cmd_new_game(message: Message, state: FSMContext):
@@ -132,32 +168,29 @@ async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallb
             return
             
         await callback.answer("Распределяю роли...")
-        
+
         try:
-            await manager.distribute_roles(room_code, min_players=MIN_PLAYERS)
-            
-            for player in players:
-                info = await manager.get_player_role_info(player.telegram_id, room_code)
-                if info:
-                    role, display_info, theme = info
-                    
-                    if role == 'SPY':
-                        role_text = f"🚨 <b>ВАША РОЛЬ: ШПИОН</b> 🚨\nТема: <i>{theme}</i>"
-                    else:
-                        role_text = f"✅ <b>ВАША РОЛЬ: ИГРОК</b>\nЗагадано: <i>{display_info}</i>"
-                        
-                    try:
-                        await bot.send_message(player.telegram_id, role_text, parse_mode="HTML")
-                    except Exception:
-                        pass 
-                        
+            started = await start_game_and_notify(bot, manager, room_code, MIN_PLAYERS)
+            if not started:
+                await callback.message.answer(
+                    f"Нужно минимум {MIN_PLAYERS} игрока для старта!",
+                    parse_mode="HTML"
+                )
+                return
+
             await callback.message.edit_text(
                 f"🎉 <b>ИГРА НАЧАЛАСЬ!</b> 🎉\n"
                 f"Комната <i>{room_code}</i>.\n"
                 f"Всем игрокам отправлены их роли в личные сообщения.\n"
                 f"Обсуждение началось!"
             )
-            
+
+            await bot.send_message(
+                callback.from_user.id,
+                "Управление игрой:",
+                reply_markup=create_creator_active_keyboard()
+            )
+
         except Exception as e:
             await callback.message.answer(f"Ошибка при распределении ролей: {e}", parse_mode="HTML")
 
@@ -171,4 +204,35 @@ async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallb
             f"Игра в комнате <i>{room_code}</i> завершена.",
             parse_mode="HTML"
         )
+
+
+@router.message(F.text == CREATOR_ACTIVE_BUTTON_NEW)
+async def cmd_creator_new_game(message: Message, manager: GameManager, bot: Bot):
+    room = await manager.get_active_room_by_creator(message.from_user.id)
+    if not room:
+        await message.answer("Активная игра не найдена.")
+        return
+
+    MIN_PLAYERS = 3
+    try:
+        restarted = await manager.restart_game(room.room_code, min_players=MIN_PLAYERS)
+        if not restarted:
+            await message.answer(f"Нужно минимум {MIN_PLAYERS} игрока для старта!", parse_mode="HTML")
+            return
+
+        await notify_players_roles(bot, manager, room.room_code)
+        await message.answer("Новая игра началась!", reply_markup=create_creator_active_keyboard())
+    except Exception as e:
+        await message.answer(f"Ошибка при запуске новой игры: {e}", parse_mode="HTML")
+
+
+@router.message(F.text == CREATOR_ACTIVE_BUTTON_CLOSE)
+async def cmd_creator_close_room(message: Message, manager: GameManager):
+    room = await manager.get_active_room_by_creator(message.from_user.id)
+    if not room:
+        await message.answer("Активная игра не найдена.")
+        return
+
+    await manager.finish_game(room.room_code)
+    await message.answer("Комната закрыта. Игра завершена.", reply_markup=ReplyKeyboardRemove())
     
