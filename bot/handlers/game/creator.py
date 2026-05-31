@@ -17,7 +17,7 @@ def format_players_list(players: List[Player], creator_id: int) -> str:
     names = []
     
     for player in players:
-        name = player.username or player.room.creator_id
+        name = player.username or str(player.telegram_id)
         
         if not name:
             name = "anonymous"
@@ -29,7 +29,8 @@ def format_players_list(players: List[Player], creator_id: int) -> str:
     return "\n".join(names)
 
 async def send_room_info(bot: Bot, room_code: str, chat_id: int, manager: GameManager, players: List[Player], kb: InlineKeyboardMarkup):
-    invite_link = f"https://t.me/{bot.me.username}?start={room_code}"
+    me = await bot.get_me()
+    invite_link = f"https://t.me/{me.username}?start={room_code}"
     
     room = await manager.get_room_by_code(room_code)
     if not room: return
@@ -43,7 +44,7 @@ async def send_room_info(bot: Bot, room_code: str, chat_id: int, manager: GameMa
         f"Тема: <b>{theme_name}</b>\n\n"
         f"🔗 <b>Ссылка для подключения:</b>\n"
         f"{invite_link}\n\n"
-        f"👥 </b>Игроки в комнате<b> ({len(players)}):\n"
+        f"👥 <b>Игроки в комнате</b> ({len(players)}):\n"
         f"{players_list_str}"
     )
     
@@ -96,7 +97,7 @@ async def cb_theme_selected(callback: CallbackQuery, callback_data: ThemeCallbac
     except Exception as e:
         await callback.message.answer(f"Произошла ошибка при создании комнаты: {e}")
         
-@router.callback_query(GameActionCallback.filter(F.action.in_(['start', 'refresh'])))
+@router.callback_query(GameActionCallback.filter(F.action.in_(['start', 'refresh', 'finish'])))
 async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallback, manager: GameManager, bot: Bot):
     room_code = callback_data.code
     action = callback_data.action
@@ -158,5 +159,16 @@ async def cb_game_action(callback: CallbackQuery, callback_data: GameActionCallb
             )
             
         except Exception as e:
-             await callback.message.answer(f"Ошибка при распределении ролей: {e}", parse_mode="HTML")
+            await callback.message.answer(f"Ошибка при распределении ролей: {e}", parse_mode="HTML")
+
+    elif action == 'finish':
+        if callback.from_user.id != room.creator_id:
+            await callback.answer("Только создатель может завершить игру!", show_alert=True)
+            return
+
+        await manager.finish_game(room_code)
+        await callback.message.edit_text(
+            f"Игра в комнате <i>{room_code}</i> завершена.",
+            parse_mode="HTML"
+        )
     

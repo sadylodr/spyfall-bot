@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.filters.callback_data import CallbackData
 
 
@@ -8,6 +8,9 @@ class ThemeCallback(CallbackData, prefix="theme"):
 class GameActionCallback(CallbackData, prefix="action"):
     code: str
     action: str
+
+CREATOR_ACTIVE_BUTTON_NEW = "Начать новую игру"
+CREATOR_ACTIVE_BUTTON_CLOSE = "Закрыть комнату"
 
 def create_theme_keyboard() -> InlineKeyboardMarkup:
     buttons = [
@@ -50,3 +53,11 @@ def create_game_management_keyboard(room_code: str, is_creator: bool) -> InlineK
     ])
     
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def create_creator_active_keyboard() -> ReplyKeyboardMarkup:
+    buttons = [
+        [KeyboardButton(text=CREATOR_ACTIVE_BUTTON_NEW)],
+        [KeyboardButton(text=CREATOR_ACTIVE_BUTTON_CLOSE)]
+    ]
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

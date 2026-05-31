@@ -9,7 +9,7 @@ class Player(Base):
     telegram_id = Column(BigInteger, nullable=False)
     username = Column(String, nullable=True)
     
-    room_id = Column(Integer, ForeignKey("game_rooms.id", on_delete="CASCADE"), nullable=False)
+    room_id = Column(Integer, ForeignKey("game_rooms.id", ondelete="CASCADE"), nullable=False)
     
     role = Column(String, nullable=False)
     
